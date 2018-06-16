@@ -1,0 +1,9 @@
+{
+  "name": "marble",
+  "version": "0.0.1",
+  "description": "Frontend for Marble",
+  "main": "index.js",
+  "scripts": {},
+  "author": "Bishan",
+  "license": "ISC"
+}
