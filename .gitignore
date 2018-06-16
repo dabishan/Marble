@@ -1,2 +1,7 @@
 .idea
 env
+
+# Local Flask Server Settings
+run.py
+config.py
+error.log
