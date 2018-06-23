@@ -33,6 +33,7 @@ class Collection:
 class Model(dict):
     """ Creates interface to pymongo collection and addition CRUD functions """
     collection_name = None
+    fields = None
 
     def __init__(self, **kwargs):
         super(Model, self).__init__(**kwargs)
@@ -68,6 +69,7 @@ class Model(dict):
         if self._state == ModelState.SAVED:
             self._state = ModelState.MODIFIED
 
+        self.__validate_type(key, value)
         super(Model, self).__setitem__(key, value)
 
     def remove(self):
@@ -87,7 +89,25 @@ class Model(dict):
         elif self._state == ModelState.MODIFIED:
             self._collection.update_one({'_id': self.id}, {'$set': self})
 
+        self.__validate()
         self._state = ModelState.SAVED
+
+    def __validate_type(self, key, value):
+        if key in self.fields.keys():
+            if 'type' in self.fields[key].keys() and type(value) is not self.fields[key]['type']:
+                raise ValueError("{} field should be of type {}, got {}".format(key, self.fields[key]['type'], type(value)))
+
+    def __validate(self):
+        if self.fields is None:
+            return True
+
+        for key in self.fields.keys():
+            field = self.fields[key]
+            if 'required' in field and self.get(key) is None:
+                raise ValueError("Required field {} not None".format(key))
+            self.__validate_type(key, self[key])
+
+        return True
 
     def __db_error(self):
         return ConnectionError("Cannot connect to the database")

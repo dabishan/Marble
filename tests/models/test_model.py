@@ -17,6 +17,10 @@ test_collection = 'items'
 
 class Item(Model):
     collection_name = test_collection
+    fields = dict(
+        name=dict(required=True, type=str),
+        price=dict(type=float)
+    )
 
 
 class TestModel:
@@ -27,20 +31,20 @@ class TestModel:
         app.logger.debug("This is a debug message")
         collection = Collection().get('items')
         collection.insert_many([
-            {'_id': test_id, 'name': 'Product1', 'price': 5},
-            {'_id': ObjectId(), 'name': 'Product2', 'price': 10}
+            {'_id': test_id, 'name': 'Product1', 'price': 5.0},
+            {'_id': ObjectId(), 'name': 'Product2', 'price': 10.0}
         ])
         yield dict(collection=collection, test_id=test_id)
         collection.drop()
 
     def test_add(self, setup):
         product = Item(name='Product3', price=15, enabled=True)
-        product.update(price=25, stock=300)
+        product.update(price=25.0, stock=300)
         product.save()
 
         product_from_db = setup['collection'].find_one({'_id': product.id})
         assert product_from_db is not None, "Test Error. Returned None instead of an item"
-        assert product_from_db['price'] == 25 , "add_properties did not update instance"
+        assert product_from_db['price'] == 25.0, "add_properties did not update instance"
         assert product_from_db['stock'] == 300, "app_properties did not add new field"
 
     def test_find(self, setup):
@@ -54,16 +58,16 @@ class TestModel:
     def test_update(self, setup):
         product = Item().load(setup['test_id'])
         product['stock'] = 500
-        product['price'] = 29
+        product['price'] = 29.0
         product.save()
 
         product_from_db = setup['collection'].find_one({'_id': setup['test_id']})
         assert product_from_db is not None, "Test Error. Returned None instead of an item"
-        assert product_from_db['price'] == 29, "add_properties did not update instance"
+        assert product_from_db['price'] == 29.0, "add_properties did not update instance"
         assert product_from_db['stock'] == 500, "app_properties did not add new field"
 
     def test_remove(self, setup):
-        product = Item(name="Product5", price=18)
+        product = Item(name="Product5", price=18.0)
         with pytest.raises(ValueError, message="Allowed removing new item"):
             product.remove()
 
@@ -74,8 +78,16 @@ class TestModel:
         assert product_from_db is None, "Item didn't get deleted from db"
 
         with pytest.raises(ValueError, message="Allowed modified fields of deleted item"):
-            product['price'] = 20
+            product['price'] = 20.0
 
         with pytest.raises(ValueError, message="Allowed removing item already deleted"):
             product.remove()
 
+    def test_validation(self, setup):
+        product = Item()
+        with pytest.raises(ValueError, message="Allowed adding field without meeting type validation"):
+            product['price'] = "5"
+
+        product['price'] = 5.0
+        with pytest.raises(ValueError, message="Allowed saving without meeting requirement validation"):
+            product.save()
