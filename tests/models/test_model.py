@@ -1,8 +1,8 @@
 import pytest
 from bson import ObjectId
-from app.app import app
 from app.models.model import Collection
 from app.models.model import Model
+from tests.models.fixtures import app_setup
 
 
 def test_model_definition():
@@ -25,10 +25,8 @@ class Item(Model):
 
 class TestModel:
     @pytest.fixture(scope="module")
-    def setup(app_setup):
+    def setup(self, app_setup):
         test_id = ObjectId()
-        app.config['DEFAULT_DB'] = test_collection
-        app.logger.debug("This is a debug message")
         collection = Collection().get('items')
         collection.insert_many([
             {'_id': test_id, 'name': 'Product1', 'price': 5.0},
