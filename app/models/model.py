@@ -33,18 +33,20 @@ class Model(Structure):
     _state = State.NEW
 
     def __init__(self, **kwargs):
-        self.__db_init()
+        if self.collection_name is None:
+            raise ValueError("collection_name not defined for Model")
+        self.collection = Collection().get(self.collection_name)
         super(Model, self).__init__(**kwargs)
         self.id = ObjectId()
         self._state = State.NEW
-
+    
     def load(self, item_id, required=True):
         """ Get item using an existing item id. Has to be present in db, unless required set to False"""
         self.id = item_id
         if item_id is None or item_id is False:
             raise ValueError("Id property of item is None or False")
         try:
-            items = self._collection.find_one({'_id': item_id})
+            items = self.collection.find_one({'_id': item_id})
         except Exception:
             raise self.__db_error()
         if items is None and required:
@@ -59,7 +61,7 @@ class Model(Structure):
             raise ValueError("Tried to delete unsaved or deleted item")
 
         try:
-            self._collection.delete_one({'_id': self.id})
+            self.collection.delete_one({'_id': self.id})
             self._state = State.DELETED
         except Exception:
             raise self.__db_error()
@@ -69,13 +71,9 @@ class Model(Structure):
             raise ValueError("Tried to save deleted item")
         self.validate()
 
-        self._collection.update_one({'_id': self.id}, {'$set': self}, upsert=True)
+        self.collection.update_one({'_id': self.id}, {'$set': self}, upsert=True)
         return True
 
-    def __db_error(self):
+    @classmethod
+    def __db_error(cls):
         return ConnectionError("Cannot connect to the database")
-
-    def __db_init(self):
-        if self.collection_name is None:
-            raise ValueError("collection_name not defined for Model")
-        self._collection = Collection().get(self.collection_name)
