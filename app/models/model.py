@@ -1,11 +1,8 @@
 from pymongo import MongoClient
 from bson.objectid import ObjectId
 from app.app import app
-from enum import Enum
 
-
-class ModelState(Enum):
-    NEW, MODIFIED, SAVED, DELETED = 0, 1, 2, 3
+from app.models.structure import Structure, State
 
 
 class Database:
@@ -30,83 +27,49 @@ class Collection:
         return self._db[collection]
 
 
-class Model(dict):
+class Model(Structure):
     """ Creates interface to pymongo collection and addition CRUD functions """
     collection_name = None
-    fields = None
+    _state = State.NEW
 
     def __init__(self, **kwargs):
-        super(Model, self).__init__(**kwargs)
         self.__db_init()
-        self._state = ModelState.NEW
+        super(Model, self).__init__(**kwargs)
         self.id = ObjectId()
+        self._state = State.NEW
 
     def load(self, item_id, required=True):
         """ Get item using an existing item id. Has to be present in db, unless required set to False"""
         self.id = item_id
         if item_id is None or item_id is False:
             raise ValueError("Id property of item is None or False")
-
         try:
-            item = self._collection.find_one({'_id': item_id})
+            items = self._collection.find_one({'_id': item_id})
         except Exception:
             raise self.__db_error()
-
-        if item is None and required:
+        if items is None and required:
             raise IndexError("Cannot find an item with given id")
-
-        self._state = ModelState.SAVED
-
-        for key in item:
-            self[key] = item[key]
-
+        self._state = State.SAVED
+        for key in items.keys():
+            self[key] = items[key]
         return self
 
-    def __setitem__(self, key, value):
-        if self._state == ModelState.DELETED:
-            raise ValueError("Cannot modify deleted item")
-
-        if self._state == ModelState.SAVED:
-            self._state = ModelState.MODIFIED
-
-        self.__validate_type(key, value)
-        super(Model, self).__setitem__(key, value)
-
     def remove(self):
-        if self._state == ModelState.DELETED or self._state == ModelState.NEW:
+        if self._state == State.DELETED or self._state == State.NEW:
             raise ValueError("Tried to delete unsaved or deleted item")
 
         try:
             self._collection.delete_one({'_id': self.id})
-            self._state = ModelState.DELETED
+            self._state = State.DELETED
         except Exception:
             raise self.__db_error()
 
     def save(self):
-        if self._state == ModelState.NEW:
-            item = self._collection.insert_one(self)
-            self.id = item.inserted_id
-        elif self._state == ModelState.MODIFIED:
-            self._collection.update_one({'_id': self.id}, {'$set': self})
+        if self._state == State.DELETED:
+            raise ValueError("Tried to save deleted item")
+        self.validate()
 
-        self.__validate()
-        self._state = ModelState.SAVED
-
-    def __validate_type(self, key, value):
-        if key in self.fields.keys():
-            if 'type' in self.fields[key].keys() and type(value) is not self.fields[key]['type']:
-                raise ValueError("{} field should be of type {}, got {}".format(key, self.fields[key]['type'], type(value)))
-
-    def __validate(self):
-        if self.fields is None:
-            return True
-
-        for key in self.fields.keys():
-            field = self.fields[key]
-            if 'required' in field and self.get(key) is None:
-                raise ValueError("Required field {} not None".format(key))
-            self.__validate_type(key, self[key])
-
+        self._collection.update_one({'_id': self.id}, {'$set': self}, upsert=True)
         return True
 
     def __db_error(self):
