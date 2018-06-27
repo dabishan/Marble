@@ -40,20 +40,18 @@ class Model(Structure):
         self.id = ObjectId()
         self._state = State.NEW
     
-    def load(self, item_id, required=True):
-        """ Get item using an existing item id. Has to be present in db, unless required set to False"""
-        self.id = item_id
-        if item_id is None or item_id is False:
-            raise ValueError("Id property of item is None or False")
+    def load(self, filter_by):
+        """ Get item using a filter. if single argument present, it treats as id """
         try:
-            items = self.collection.find_one({'_id': item_id})
+            item = self.collection.find_one(filter_by if type(filter_by) is dict else dict(_id=filter_by))
         except Exception:
             raise self.__db_error()
-        if items is None and required:
-            raise IndexError("Cannot find an item with given id")
+        if item is None:
+            return None
         self._state = State.SAVED
-        for key in items.keys():
-            self[key] = items[key]
+        self.id = item['_id']
+        for key in item:
+            self[key] = item[key]
         return self
 
     def remove(self):
