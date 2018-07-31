@@ -54,8 +54,7 @@ class TestModel:
         assert product_from_db['stock'] == 300, "app_properties did not add new field"
 
     def test_find(self, setup):
-        with pytest.raises(IndexError, message="Did not raise IndexError on item id not in db"):
-            Item().load(ObjectId())
+        assert Item().load(ObjectId()) is None, "Did not raise IndexError on item id not in db"
 
         product = Item().load(setup['test_id'])
         assert product is not None, "Returned None instead of an item"
