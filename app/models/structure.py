@@ -46,7 +46,6 @@ class Structure(dict):
 
     def validate(self):
         for key, value in self.items():
-            print(key, value)
             if key in self and issubclass(type(self[key]), Structure):
                 value.validate()
 
